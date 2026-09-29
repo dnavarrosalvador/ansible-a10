@@ -1,0 +1,9 @@
+---
+# ============================================================================
+#  site_cli.yml   (variante CLI)
+#  Orquestador: 1) interfaz de datos  ->  2) balanceo SLB
+#  Uso:  ansible-playbook site_cli.yml --ask-vault-pass
+# ============================================================================
+
+- import_playbook: a10_interface_cli.yml
+- import_playbook: a10_slb_cisco7200_cli.yml

@@ -1,0 +1,52 @@
+---
+# ============================================================================
+#  group_vars/vthunder.yml  (variante CLI · a10.acos_cli)
+#  Conexión por SSH (network_cli) + modelo de datos del balanceo
+# ============================================================================
+
+# --- Conexión CLI (network_cli / SSH) al A10 vThunder -----------------------
+ansible_connection: network_cli
+ansible_network_os: a10.acos_cli.acos          # si falla, prueba: acos
+ansible_user: admin
+ansible_password: "{{ vault_a10_password | default('a10') }}"   # ¡usa Ansible Vault!
+ansible_port: 22                               # SSH de gestión (¡debe estar habilitado!)
+ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+
+# Modo enable (privilegiado) para entrar en configuración.
+ansible_become: true
+ansible_become_method: enable
+# Contraseña de enable; por defecto reutiliza la de login. Ajusta o vacía
+# ("") si tu equipo no tiene enable password.
+ansible_become_password: "{{ vault_a10_enable_password | default(ansible_password) }}"
+
+# --- Interfaz de datos del A10 hacia los Cisco 7200 -------------------------
+data_interface:
+  ifnum: 1                     # nº de interfaz ethernet del data plane del vThunder
+  ipv4_address: 172.22.2.1     # IP del A10 en la subred de los Cisco
+  ipv4_netmask: 255.255.255.0  # 172.22.2.0/24
+
+# --- Routers Cisco 7200 reales (back-end, en la subred del data_interface) --
+real_servers:
+  - { name: cisco7200-1, host: 172.22.2.11 }
+  - { name: cisco7200-2, host: 172.22.2.12 }
+
+# --- Servicios a balancear --------------------------------------------------
+#   protocol        -> protocolo del service-group y del puerto real (tcp/udp)
+#   vport_protocol  -> tipo del puerto virtual (tcp = L4 / http = L7)
+#   sg              -> nombre del service-group
+services:
+  - { name: telnet, port: 23,  protocol: tcp, vport_protocol: tcp,  sg: sg-telnet }
+  - { name: http,   port: 80,  protocol: tcp, vport_protocol: http, sg: sg-http }
+  - { name: ssh,    port: 22,  protocol: tcp, vport_protocol: tcp,  sg: sg-ssh }
+  - { name: https,  port: 443, protocol: tcp, vport_protocol: tcp,  sg: sg-https }
+
+# --- Virtual Server (VIP) ---------------------------------------------------
+vip_name: vip-cisco7200
+vip_address: 10.10.10.100
+
+# --- Método de balanceo (keyword ACOS) --------------------------------------
+# round-robin | least-connection | service-least-connection | src-ip-hash ...
+lb_method: round-robin
+
+# --- Comportamiento ---------------------------------------------------------
+save_config: true        # ejecutar 'write memory' al final

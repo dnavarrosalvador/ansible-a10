@@ -1,0 +1,15 @@
+collections/
+.vault_pass
+*.vault_pass
+*.retry
+.ansible/
+__pycache__/
+*.pyc
+.venv/
+venv/
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# group_vars/vault.yml se versiona SOLO cifrado ($ANSIBLE_VAULT;...)

@@ -1,0 +1,29 @@
+---
+# ============================================================================
+#  a10_interface_cli.yml   (variante CLI · a10.acos_cli)
+#
+#  Configura por CLI (SSH) la interfaz de datos del A10 hacia los Cisco 7200
+#  (subred 172.22.2.0/24). Debe ejecutarse ANTES del balanceo (ver site_cli.yml).
+# ============================================================================
+
+- name: "A10 (CLI) | Interfaz de datos hacia los Cisco 7200 (172.22.2.0/24)"
+  hosts: vthunder
+  gather_facts: false
+  # become: true
+  # La conexión network_cli y el modo enable se definen en group_vars/vthunder.yml
+
+  tasks:
+
+    - name: "Configurar y habilitar la interfaz ethernet (ACOS CLI)"
+      a10.acos_cli.acos_config:
+        # match: none -> no compara con el running-config y envía TODO el bloque
+        # (incluida la línea padre), evitando que el diff pode 'interface ethernet N'
+        # y deje 'enable'/'ip address' huérfanos en (config)#.
+        match: none
+        lines: "{{ lookup('template', 'templates/interface_cli.j2').splitlines() | select() | list }}"
+
+    - name: "Guardar la configuracion (write memory)"
+      a10.acos_cli.acos_command:
+        commands:
+          - write memory
+      when: save_config | bool
