@@ -1,0 +1,47 @@
+---
+# ============================================================================
+#  group_vars/vthunder.yml
+#  Conexión a la aXAPI + modelo de datos del balanceo
+# ============================================================================
+
+# --- Conexión a la API (aXAPI v3) del A10 vThunder --------------------------
+# La colección a10.acos_axapi toma estas variables del inventario/group_vars.
+ansible_username: admin
+ansible_password: "{{ vault_a10_password | default('a10') }}"   # ¡usa Ansible Vault!
+ansible_port: 443                                               # puerto HTTPS de la aXAPI
+
+# --- Routers Cisco 7200 reales (back-end) -----------------------------------
+real_servers:
+  - name: cisco7200-1
+    host: 10.10.10.11
+  - name: cisco7200-2
+    host: 10.10.10.12
+
+# --- Servicios a balancear --------------------------------------------------
+#   port            -> puerto del servidor real y del puerto virtual
+#   protocol        -> protocolo L4 del service-group y del puerto real (tcp/udp)
+#   vport_protocol  -> tipo del puerto virtual en el VIP:
+#                        * tcp  -> balanceo L4 puro (telnet, ssh)
+#                        * http -> balanceo L7 (permite plantillas/persistencia HTTP)
+#   sg              -> nombre del service-group asociado
+services:
+  - { name: telnet, port: 23,  protocol: tcp, vport_protocol: tcp,  sg: sg-telnet }
+  - { name: http,   port: 80,  protocol: tcp, vport_protocol: http, sg: sg-http }
+  - { name: ssh,    port: 22,  protocol: tcp, vport_protocol: tcp,  sg: sg-ssh }
+  - { name: https,  port: 443, protocol: tcp, vport_protocol: tcp,  sg: sg-https }
+    # vport_protocol: tcp -> SSL passthrough (L4), no requiere certificados.
+    # Para terminar TLS en el vThunder (L7) usa vport_protocol: https y asocia
+    # client-ssl / server-ssl templates al puerto virtual.
+
+# --- Virtual Server (VIP) que expone el balanceo ----------------------------
+vip_name: vip-cisco7200
+vip_address: 10.10.10.100
+
+# --- Método de balanceo -----------------------------------------------------
+# round-robin | weighted-rr | least-connection | service-least-connection |
+# fastest-response | src-ip-hash | dst-ip-hash ...
+lb_method: round-robin
+
+# --- Comportamiento del playbook --------------------------------------------
+save_config: true        # ejecutar 'write memory' al final
+verify_config: false     # leer y mostrar el VIP resultante

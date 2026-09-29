@@ -1,0 +1,73 @@
+---
+# ============================================================================
+#  a10_slb_cisco7200.yml
+#
+#  Configura, vía la aXAPI v3 de ACOS (colección a10.acos_axapi), un balanceo
+#  de carga sobre un A10 vThunder hacia dos routers Cisco 7200, exponiendo
+#  acceso balanceado a Telnet (23), HTTP (80) y SSH (22) a través de un VIP.
+#
+#  Flujo:
+#    1. slb server        -> da de alta los dos Cisco 7200 con sus puertos
+#    2. slb service-group -> un pool por servicio (telnet / http / ssh)
+#    3. slb virtual-server-> VIP con un puerto virtual por servicio
+#    4. write memory      -> persiste la configuración
+#
+#  El modelo de datos (servidores, servicios, VIP) vive en group_vars/vthunder.yml
+# ============================================================================
+
+- name: "A10 vThunder | SLB Telnet/HTTP/SSH hacia 2x Cisco 7200"
+  hosts: vthunder
+  connection: local           # la colección habla aXAPI; la conexión es local
+  gather_facts: false
+
+  tasks:
+
+    - name: "1. Alta de los servidores reales (Cisco 7200) con sus puertos"
+      a10.acos_axapi.a10_slb_server:
+        name: "{{ item.name }}"
+        host: "{{ item.host }}"
+        # Genera el port-list del servidor a partir de la lista 'services'
+        port_list: "{{ services | json_query('[].{port_number: port, protocol: protocol}') }}"
+        state: present
+      loop: "{{ real_servers }}"
+      loop_control:
+        label: "{{ item.name }} ({{ item.host }})"
+
+    - name: "2. Creacion de los service-groups (un pool por servicio)"
+      a10.acos_axapi.a10_slb_service_group:
+        name: "{{ item.sg }}"
+        protocol: "{{ item.protocol }}"
+        lb_method: "{{ lb_method }}"
+        # Cada miembro = (nombre del servidor real) + (puerto de este servicio)
+        member_list: "{{ real_servers | json_query('[].{name: name}') | map('combine', {'port': item.port}) | list }}"
+        state: present
+      loop: "{{ services }}"
+      loop_control:
+        label: "{{ item.sg }} (puerto {{ item.port }}/{{ item.protocol }})"
+
+    - name: "3. Creacion del virtual-server (VIP) con un puerto virtual por servicio"
+      a10.acos_axapi.a10_slb_virtual_server:
+        name: "{{ vip_name }}"
+        ip_address: "{{ vip_address }}"
+        # Cada puerto virtual apunta a su service-group correspondiente
+        port_list: "{{ services | json_query('[].{port_number: port, protocol: vport_protocol, service_group: sg}') }}"
+        state: present
+
+    - name: "4. Guardar la configuracion en memoria (write memory)"
+      a10.acos_axapi.a10_write_memory:
+      when: save_config | bool
+
+    # ---- Verificacion opcional (state: noop = solo lectura) -----------------
+    - name: "5. (Opcional) Leer el estado del VIP creado"
+      a10.acos_axapi.a10_slb_virtual_server:
+        name: "{{ vip_name }}"
+        ip_address: "{{ vip_address }}"
+        state: noop
+        get_type: single
+      register: vip_state
+      when: verify_config | bool
+
+    - name: "Mostrar el VIP configurado"
+      ansible.builtin.debug:
+        var: vip_state
+      when: verify_config | bool
