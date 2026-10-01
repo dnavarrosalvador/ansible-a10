@@ -14,16 +14,14 @@
 
   tasks:
 
-    - name: "Configurar y habilitar la interfaz ethernet (ACOS CLI)"
-      a10.acos_cli.acos_config:
-        # match: none -> no compara con el running-config y envía TODO el bloque
-        # (incluida la línea padre), evitando que el diff pode 'interface ethernet N'
-        # y deje 'enable'/'ip address' huérfanos en (config)#.
-        match: none
-        lines: "{{ lookup('template', 'templates/interface_cli.j2').splitlines() | select() | list }}"
-
-    - name: "Guardar la configuracion (write memory)"
+    - name: "Configurar y habilitar las interfaces ethernet (ACOS CLI)"
+      # Usamos acos_command (no acos_config): con varias interfaces, el
+      # NetworkConfig de acos_config deduplica las líneas 'enable'/'exit'
+      # repetidas y la segunda interfaz quedaría a medias. Aquí se envían
+      # los comandos tal cual y en orden, como en la sesión CLI interactiva.
       a10.acos_cli.acos_command:
-        commands:
-          - write memory
-      when: save_config | bool
+        commands: >-
+          {{ ['configure']
+             + (lookup('template', 'templates/interface_cli.j2').splitlines() | select() | list)
+             + (['end', 'write memory'] if (save_config | bool) else ['end']) }}
+      register: intf_out

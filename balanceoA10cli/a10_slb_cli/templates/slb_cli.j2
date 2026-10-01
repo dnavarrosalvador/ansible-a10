@@ -2,21 +2,27 @@
 slb server {{ s.name }} {{ s.host }}
 {% for svc in services %}
 port {{ svc.port }} {{ svc.protocol }}
+exit
 {% endfor %}
 exit
 {% endfor %}
+{% for vs in virtual_servers %}
 {% for svc in services %}
-slb service-group {{ svc.sg }} {{ svc.protocol }}
+slb service-group {{ svc.sg }}-{{ vs.name }} {{ svc.protocol }}
 method {{ lb_method }}
-{% for s in real_servers %}
-member {{ s.name }} {{ svc.port }}
+{% for m in vs.members %}
+member {{ m }} {{ svc.port }}
 {% endfor %}
 exit
 {% endfor %}
-slb virtual-server {{ vip_name }} {{ vip_address }}
+slb virtual-server {{ vs.name }} {{ vs.address }}
 {% for svc in services %}
 port {{ svc.port }} {{ svc.vport_protocol }}
-service-group {{ svc.sg }}
+{% if snat_auto | default(false) | bool %}
+source-nat auto
+{% endif %}
+service-group {{ svc.sg }}-{{ vs.name }}
 exit
 {% endfor %}
 exit
+{% endfor %}

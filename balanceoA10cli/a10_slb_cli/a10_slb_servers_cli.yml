@@ -28,10 +28,9 @@
       register: slb_out
 
     # ---- Verificacion opcional (solo lectura) -------------------------------
-    - name: "(Opcional) Mostrar el virtual-server configurado"
+    - name: "(Opcional) Mostrar los virtual-servers configurados"
       a10.acos_cli.acos_command:
-        commands:
-          - "show slb virtual-server {{ vip_name }}"
+        commands: "{{ virtual_servers | map(attribute='name') | map('regex_replace', '^', 'show slb virtual-server ') | list }}"
       register: slb_show
       when: verify_config | default(false) | bool
 

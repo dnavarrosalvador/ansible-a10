@@ -1,3 +1,9 @@
-interface ethernet {{ data_interface.ifnum }}
+{% for intf in data_interfaces %}
+interface ethernet {{ intf.ifnum }}
+{% if intf.name is defined %}
+name {{ intf.name }}
+{% endif %}
 enable
-ip address {{ data_interface.ipv4_address }} {{ data_interface.ipv4_netmask }}
+ip address {{ intf.ipv4_address }} {{ intf.ipv4_netmask }}
+exit
+{% endfor %}
