@@ -6,4 +6,4 @@
 # ============================================================================
 
 - import_playbook: a10_interface_cli.yml
-- import_playbook: a10_slb_servers_cli.yml
+- import_playbook: a10_slb_cisco7200_cli.yml

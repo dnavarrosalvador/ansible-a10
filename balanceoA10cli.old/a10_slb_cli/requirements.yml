@@ -1,0 +1,9 @@
+---
+# ============================================================================
+#  requirements.yml  (variante CLI)
+#  Instalar:  ansible-galaxy collection install -r requirements.yml -p ./collections
+# ============================================================================
+
+collections:
+  - name: a10.acos_cli        # módulos acos_config / acos_command + cliconf/terminal
+  - name: ansible.netcommon   # dependencia (network_cli, NetworkConfig)

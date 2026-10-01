@@ -1,0 +1,22 @@
+{% for s in real_servers %}
+slb server {{ s.name }} {{ s.host }}
+{% for svc in services %}
+port {{ svc.port }} {{ svc.protocol }}
+{% endfor %}
+exit
+{% endfor %}
+{% for svc in services %}
+slb service-group {{ svc.sg }} {{ svc.protocol }}
+method {{ lb_method }}
+{% for s in real_servers %}
+member {{ s.name }} {{ svc.port }}
+{% endfor %}
+exit
+{% endfor %}
+slb virtual-server {{ vip_name }} {{ vip_address }}
+{% for svc in services %}
+port {{ svc.port }} {{ svc.vport_protocol }}
+service-group {{ svc.sg }}
+exit
+{% endfor %}
+exit

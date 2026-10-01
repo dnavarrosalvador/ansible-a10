@@ -1,0 +1,21 @@
+# ============================================================================
+#  ansible.cfg  (variante CLI)
+# ============================================================================
+
+[defaults]
+inventory = ./inventory.ini
+collections_path = ./collections:~/.ansible/collections
+gathering = explicit
+host_key_checking = False
+retry_files_enabled = False
+stdout_callback = yaml
+
+# Descomenta si necesitas apuntar a los plugins cliconf/terminal manualmente
+# (solo si ansible_network_os: a10.acos_cli.acos no los descubre solo):
+# cliconf_plugins = ./collections/ansible_collections/a10/acos_cli/plugins/cliconf
+# terminal_plugins = ./collections/ansible_collections/a10/acos_cli/plugins/terminal
+
+[persistent_connection]
+# network_cli abre una sesión SSH persistente; damos margen de timeouts
+command_timeout = 60
+connect_timeout = 60

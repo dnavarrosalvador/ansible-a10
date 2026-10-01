@@ -2,11 +2,11 @@
 # ============================================================================
 #  a10_interface_cli.yml   (variante CLI · a10.acos_cli)
 #
-#  Configura por CLI (SSH) la interfaz de datos del A10 hacia los servers
-#  (subredes 172.22.35.0/24 y 38.0/24). Debe ejecutarse ANTES del balanceo (ver site_cli.yml).
+#  Configura por CLI (SSH) la interfaz de datos del A10 hacia los Cisco 7200
+#  (subred 172.22.2.0/24). Debe ejecutarse ANTES del balanceo (ver site_cli.yml).
 # ============================================================================
 
-- name: "A10 (CLI) | Interfaz de datos hacia los servers "
+- name: "A10 (CLI) | Interfaz de datos hacia los Cisco 7200 (172.22.2.0/24)"
   hosts: vthunder
   gather_facts: false
   # become: true

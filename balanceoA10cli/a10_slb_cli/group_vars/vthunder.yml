@@ -1,54 +1,72 @@
 ---
 # ============================================================================
-#  group_vars/vthunder.yml  (variante CLI · a10.acos_cli)
-#  Conexión por SSH (network_cli) + modelo de datos del balanceo
+#  group_vars/vthunder.yml  (variante CLI - a10.acos_cli)
+#  ConexiÃ³n por SSH (network_cli) + modelo de datos del balanceo
 # ============================================================================
 
-# --- Conexión CLI (network_cli / SSH) al A10 vThunder -----------------------
-ansible_connection: network_cli
-ansible_network_os: a10.acos_cli.acos          # si falla, prueba: acos
+# --- ConexiÃ³n CLI (network_cli / SSH) al A10 vThunder -----------------------
+ansible_connection: ansible.netcommon.network_cli
+ansible_network_os: a10.acos_cli.acos
 ansible_user: admin
-# ansible_password: "{{ vault_a10_password | default('a10') }}"   # ¡usa Ansible Vault!
-ansible_password: "DavidCipri123."
-ansible_port: 22                               # SSH de gestión (¡debe estar habilitado!)
+ansible_password: "DavidCipri.123."      # definir en group_vars/vault.yml cifrado
+ansible_port: 22
 ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
 
-# Modo enable (privilegiado) para entrar en configuración.
+# Modo enable (privilegiado)
 ansible_become: true
 ansible_become_method: enable
-# Contraseña de enable; por defecto reutiliza la de login. Ajusta o vacía
-# ("") si tu equipo no tiene enable password.
-# ansible_become_password: "{{ vault_a10_enable_password | default(ansible_password) }}"
-ansible_become_password: ""
+# ansible_become_password: "{{ vault_a10_enable_password | default('') }}"
 
-# --- Interfaz de datos del A10 hacia los Cisco 7200 -------------------------
-data_interface:
-  ifnum: 3                     # nº de interfaz ethernet del data plane del vThunder
-  ipv4_address: 172.22.2.1     # IP del A10 en la subred de los Cisco
-  ipv4_netmask: 255.255.255.0  # 172.22.2.0/24
+# --- Interfaces de datos del A10 hacia los server  -----------------------
+# LISTA: un elemento por interfaz (antes eran claves duplicadas y solo
+# sobrevivÃ­a la Ãºltima, la ethernet 3).
+data_interfaces:
+  - ifnum: 2
+    name: to-server-1
+    ipv4_address: 172.22.35.1
+    ipv4_netmask: 255.255.255.0     # 172.22.35.0/24
+  - ifnum: 3
+    name: to-server-2
+    ipv4_address: 172.22.38.1
+    ipv4_netmask: 255.255.255.0     # 172.22.38.0/24
 
-# --- Routers Cisco 7200 reales (back-end, en la subred del data_interface) --
+# --- servers reales (back-end) -----------------------------------
+# server-1 estÃ¡ en la subred de ethernet 2, server-2 en la de ethernet 3
 real_servers:
-  - { name: cisco7200-1, host: 172.22.2.21 }
-  - { name: cisco7200-2, host: 172.22.2.22 }
+  - { name: server-1, host: 172.22.35.100 }
+  - { name: server-2, host: 172.22.38.200 }
 
 # --- Servicios a balancear --------------------------------------------------
 #   protocol        -> protocolo del service-group y del puerto real (tcp/udp)
 #   vport_protocol  -> tipo del puerto virtual (tcp = L4 / http = L7)
-#   sg              -> nombre del service-group
+#   sg              -> prefijo del service-group (se le aÃ±ade el nombre del VIP)
 services:
   - { name: telnet, port: 23,  protocol: tcp, vport_protocol: tcp,  sg: sg-telnet }
   - { name: http,   port: 80,  protocol: tcp, vport_protocol: http, sg: sg-http }
   - { name: ssh,    port: 22,  protocol: tcp, vport_protocol: tcp,  sg: sg-ssh }
   - { name: https,  port: 443, protocol: tcp, vport_protocol: tcp,  sg: sg-https }
 
-# --- Virtual Server (VIP) ---------------------------------------------------
-vip_name: vip-cisco7200
-vip_address: 172.21.2.1
+# --- Virtual Servers (VIPs) -------------------------------------------------
+# LISTA: un elemento por VIP (antes vip_name/vip_address se sobrescribÃ­an).
+# 'members' indica quÃ© reales hay detrÃ¡s de cada VIP. Si quieres que ambos
+# VIPs balanceen entre los dos Cisco, pon los dos nombres en cada uno.
+virtual_servers:
+  - name: vip-containerlab35
+    address: 172.21.35.1
+    members: [server-1]
+  - name: vip-containerlab38
+    address: 172.21.38.1
+    members: [server-2]
 
-# --- Método de balanceo (keyword ACOS) --------------------------------------
+# --- MÃ©todo de balanceo (keyword ACOS) --------------------------------------
 # round-robin | least-connection | service-least-connection | src-ip-hash ...
 lb_method: round-robin
 
+# --- Source NAT (recomendado si los Cisco no tienen el A10 como gateway) ----
+# true -> 'source-nat auto' en cada puerto virtual (usa la IP de la interfaz
+# de salida como origen, el trÃ¡fico de vuelta vuelve siempre por el A10)
+snat_auto: true
+
 # --- Comportamiento ---------------------------------------------------------
 save_config: true        # ejecutar 'write memory' al final
+

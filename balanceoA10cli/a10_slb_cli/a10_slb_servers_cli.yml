@@ -1,0 +1,41 @@
+---
+# ============================================================================
+#  a10_slb_cisco7200_cli.yml   (variante CLI · a10.acos_cli)
+#
+#  Configura por CLI (SSH) el balanceo SLB sobre el A10 vThunder hacia dos
+#  servers: Telnet (23), HTTP (80), SSH (22) y HTTPS (443).
+#
+#  Genera los comandos ACOS desde el mismo modelo de datos (group_vars) que la
+#  variante aXAPI, a través de la plantilla templates/slb_cli.j2.
+# ============================================================================
+
+- name: "A10 (CLI) | SLB Telnet/HTTP/SSH/HTTPS hacia 2x servers "
+  hosts: vthunder
+  gather_facts: false
+
+  tasks:
+
+    - name: "Aplicar la configuración SLB por CLI (comandos literales, en orden)"
+      # Usamos acos_command (no acos_config) a propósito: envía los comandos tal
+      # cual y en orden, SIN el diff/NetworkConfig de acos_config, que deduplica
+      # líneas idénticas (p.ej. 'port 23 tcp' bajo server y bajo virtual-server)
+      # y rompía el submodo del vport. Esto replica la sesión CLI interactiva.
+      a10.acos_cli.acos_command:
+        commands: >-
+          {{ ['configure']
+             + (lookup('template', 'templates/slb_cli.j2').splitlines() | select() | list)
+             + (['end', 'write memory'] if (save_config | bool) else ['end']) }}
+      register: slb_out
+
+    # ---- Verificacion opcional (solo lectura) -------------------------------
+    - name: "(Opcional) Mostrar el virtual-server configurado"
+      a10.acos_cli.acos_command:
+        commands:
+          - "show slb virtual-server {{ vip_name }}"
+      register: slb_show
+      when: verify_config | default(false) | bool
+
+    - name: "Salida de show slb virtual-server"
+      ansible.builtin.debug:
+        var: slb_show.stdout_lines
+      when: verify_config | default(false) | bool
